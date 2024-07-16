@@ -1,0 +1,65 @@
+#!/bin/env sh
+
+_trap_finally() {
+  # Make sure we wil clean all resources and revert all the changes we made
+
+  xhost -local:docker
+  set +a
+}
+trap '_trap_finally' EXIT INT TERM # HUP QUIT
+
+
+_main() {
+  local GIT_ROOT_PATH="$(git rev-parse --show-toplevel)"
+  local DOCKER_COMPOSE_PATH="${GIT_ROOT_PATH}/docker-compose.yml"
+  local DOCKER_PROJECT_NAME="$(basename "${GIT_ROOT_PATH}")"
+
+  # Export necessary environment variables
+  export DISPLAY=${DISPLAY}
+  export WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
+  export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}
+
+  docker compose \
+    -f "${DOCKER_COMPOSE_PATH}" \
+    -p "${DOCKER_PROJECT_NAME}" \
+    up \
+    --remove-orphans \
+    --build
+}
+
+#_main
+
+# Load the .env file it exists otherwise load the .env.dist file
+set -a # Automatically export all variables so it can be used in the docker-compose.yml file
+trap 'set +a' EXIT INT TERM # HUP QUIT
+[ -f .env ] && source .env || source .env.dist
+set +a
+
+xhost +local:docker
+
+docker build -t test .
+docker run -it --rm \
+  -e DISPLAY=$DISPLAY \
+  -e QT_DEBUG_PLUGINS=1 \
+  -e OPENAI_API_KEY=${DOT_ENV_OPENAI_API_KEY} \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v ./tmp/.config:/root/.config/pygpt-net \
+  -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
+  -v /etc/machine-id:/etc/machine-id:ro \
+  test
+
+#  -v /run/user/$(id -u)/pulse:/run/user/$(id -u)/pulse \
+#  -v /home/$USER/.config/pulse:/home/root/.config/pulse \
+#  -e PULSE_SERVER=unix:/run/user/$(id -u)/pulse/native \
+
+
+#docker run --rm -it \
+#    -e DISPLAY=$DISPLAY \
+#    -v /tmp/.X11-unix:/tmp/.X11-unix \
+#    -v /etc/machine-id:/etc/machine-id:ro \
+#    -v /run/user/$(id -u)/pulse:/run/user/$(id -u)/pulse \
+#    -v /home/$USER/.config/pulse:/home/root/.config/pulse \
+#    -e PULSE_SERVER=unix:/run/user/$(id -u)/pulse/native \
+#    --device /dev/dri \
+#    --device /dev/snd \
+#    test

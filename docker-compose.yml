@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  pygpt:
+    build: .
+    ports:
+      - "8000:8000"
+
+    # make it --interactive --tty
+    stdin_open: true
+    tty: true
+    privileged: true
+    #  make it --device=/dev/dri:/dev/dri
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - QT_DEBUG_PLUGINS=1
+#      - QT_QPA_PLATFORM=wayland
+      - OPENAI_API_KEY=${DOT_ENV_OPENAI_API_KEY}
+      - WAYLAND_DISPLAY=${WAYLAND_DISPLAY}  # Ensure this is correct
+      - XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}  # Needed for Wayland
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /run/user/1001/wayland-0:/run/user/1001/wayland-0
+      - ${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native  # For sound if needed
+      - ./tmp/.config:/root/.config/pygpt-net
+      - type: volume
+        source: pipcache
+        target: /root/.cache/pip
+    devices:
+      - /dev/dri:/dev/dri
+      - "/dev/snd:/dev/snd"  # For audio access
+      - "/dev/video0:/dev/video0"  # For camera access (adjust as necessary)
+    restart: no
+
+volumes:
+  pipcache:
